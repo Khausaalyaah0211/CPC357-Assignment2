@@ -1,0 +1,42 @@
+# Import necessary modules
+from flask import Flask, request, jsonify
+from google.cloud import pubsub_v1, firestore
+import json
+
+app = Flask(__name__)
+subscriber = pubsub_v1.SubscriberClient()
+publisher = pubsub_v1.PublisherClient()
+validated_topic_path = publisher.topic_path("cst435-446915", "temperature-data")
+db = firestore.Client()
+
+# Define the /validate-data route to receive and handle POST requests
+@app.route('/validate-data', methods=['POST'])
+def validate_data():
+    try:
+        # Parse incoming data
+        data = request.get_json()
+        message = data.get("message")
+        attributes = data.get("attributes")
+        
+        # Validate data
+        message_data = json.loads(message)
+        if "temperature" in message_data:
+            temperature = float(message_data["temperature"])
+            
+            if 0 <= temperature <= 50:  # Example validation
+                # Publish to validated topic
+                publisher.publish(validated_topic_path, json.dumps(message_data).encode("utf-8"))
+                
+                # Optionally, save to Firestore
+                db.collection("temperature-data").add(message_data)
+                return jsonify({"status": "success", "message": "Data validated and published."}), 200
+            else:
+                return jsonify({"status": "error", "message": "Invalid data values."}), 400
+        else:
+            return jsonify({"status": "error", "message": "Missing required fields."}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# Run the Flask app with debug mode enabled
+if __name__ == "__main__":
+    app.run(debug=True)
