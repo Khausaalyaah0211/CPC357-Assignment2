@@ -1,0 +1,28 @@
+import paho.mqtt.client as mqtt
+from google.cloud import pubsub_v1
+
+# --- Google Cloud Pub/Sub Configuration ---
+project_id = "cst435-446915"
+topic_id = "temperature-data"
+publisher = pubsub_v1.PublisherClient()
+topic_path = publisher.topic_path(project_id, topic_id)
+
+# --- MQTT Broker Configuration ---
+mqtt_broker = "34.31.181.132 "
+mqtt_port = 8883
+mqtt_topic = "temperature"
+
+# --- Define the MQTT message handler ---
+def temp_message(client, userdata, msg):
+    message = msg.payload.decode("utf-8")
+    publisher.publish(topic_path, message.encode("utf-8"))
+    print(f"Sent to Pub/Sub: {message}")
+
+# --- MQTT Client Setup ---
+client = mqtt.Client()
+client.temp_message = on_message
+client.connect(mqtt_broker, mqtt_port, 60)
+client.subscribe(mqtt_topic)
+
+print("Waiting for temperature updates...")
+client.loop_forever()
