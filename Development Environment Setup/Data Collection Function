@@ -1,0 +1,29 @@
+from flask import Flask, request, jsonify
+from google.cloud import pubsub_v1
+import json
+
+# Initialise and Configure the Pub/Sub Publisher Client & Path
+app = Flask(__name__)
+publisher = pubsub_v1.PublisherClient()
+iot_topic_path = publisher.topic_path("cst435-446915", "temperature-data")
+
+# Define the /collect-data route to receive and handle POST requests
+@app.route('/collect-data', methods=['POST'])
+def collect_data():
+    try:
+        # Parse incoming data
+        data = request.get_json()
+        device_id = data.get("device_id")
+        temperature = data.get("temperature")
+        
+        # Publish data to Pub/Sub topic
+        message = json.dumps(data).encode("utf-8")
+        publisher.publish(iot_topic_path, message, device_id=device_id)
+        
+        return jsonify({"status": "success", "message": "Data collected and published."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# Run the Flask app with debug mode enabled
+if __name__ == "__main__":
+    app.run(debug=True)
